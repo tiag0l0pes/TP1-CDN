@@ -48,7 +48,7 @@ public class Master implements IMaster {
         }
     }
 
-    public static void main(String args[]) {
+            public static void main(String args[]) {
         if (args.length < 3) {
             System.out.println("Syntax: Master name minValue maxValue");
             System.exit(1);
@@ -82,6 +82,7 @@ public class Master implements IMaster {
     @Override
     public void printResult(String result) {
         //To change body of implemented methods use File | Settings | File Templates.
+        System.out.println(result);
     }
 
     @Override

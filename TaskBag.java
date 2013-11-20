@@ -29,15 +29,24 @@ public class TaskBag implements Remote, ITaskBag {
     @Override
     public void jobResult(int jobId, ArrayList<Integer> primeList) throws RemoteException {
         Job job = jobsBeingProcessed.remove(jobId);
-        job.setPrimeList(primeList);
+        try{
+            job.setPrimeList(primeList);
+            System.out.println("Receiving Result " + job.getMin() + " - " + job.getMax() + " Master: " + job.getMaster());
+            freeWorkers.add(job.getWorker());
 
-        freeWorkers.add(job.getWorker());
+            if (allMasterJobsCompleted(job.getMaster())){
+                List<Integer> result = new ArrayList<Integer>();
 
-        //TODO: logic to see if the all jobs of  this master are completed, if yes return the data to the master
-        //TODO: if failing to communicate with the cliente save the data in masterCompleteWork
-        IMaster master = masters.get(job.getMaster());
-        master.printResult("asdasdsad");
+                for(Job mjob : masterJobs.get(job.getMaster())){
+                    result.addAll(mjob.getPrimeList());
+                }
 
+                masterCompletedWork.put(job.getMaster(),result);
+                masterJobs.remove(job.getMaster());
+
+                sendCompletedResult(job.getMaster());
+            }
+        } catch (Exception ex){};
 
         updateJobs();
     }
@@ -46,6 +55,15 @@ public class TaskBag implements Remote, ITaskBag {
     public void registerMaster(String name, IMaster master) {
         System.out.println("Accepting Master " + name + "...");
         masters.put(name, master);
+
+        if(masterCompletedWork.containsKey(name))
+            try {
+                System.out.println("Send completed work to " + name + "...");
+                sendCompletedResult(name, master);
+            } catch (RemoteException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
+
     }
 
     @Override
@@ -70,13 +88,60 @@ public class TaskBag implements Remote, ITaskBag {
         updateJobs();
     }
 
+    private void sendCompletedResult(String name, IMaster master) throws RemoteException{
+        System.out.println("Send Completed Result to "+name+"...");
+        String responseString = "{";
+
+        for (Integer num : masterCompletedWork.get(name))
+        {
+            responseString += num + ",";
+        }
+
+        responseString += "}";
+        master.printResult(responseString);
+        masterCompletedWork.remove(name);
+    }
+
+    private void sendCompletedResult(String name) throws RemoteException{
+        System.out.println("Send Completed Result to "+name+"...");
+        IMaster master = masters.get(name);
+        String responseString = "{";
+
+        for (Integer num : masterCompletedWork.get(name))
+        {
+            responseString += num + ",";
+        }
+
+        responseString += "}";
+        master.printResult(responseString);
+        masterCompletedWork.remove(name);
+    }
+
+    private boolean allMasterJobsCompleted(String name){
+        for(Job job : masterJobs.get(name)){
+            if(!job.isProcessed())
+                return false;
+        }
+        return true;
+    }
+
     private void updateJobs() {
         if (freeWorkers.isEmpty()) return;
         if (jobs.isEmpty() && jobsBeingProcessed.isEmpty()) return;
-        //TODO: if jobs.isEmpty and jobsBeingPRocessed isn't empty maybe a worker is failing so assign the job to another worker
+        // if jobs.isEmpty and jobsBeingPRocessed isn't empty maybe a worker is failing so assign the job to another worker
+        if (jobs.isEmpty() && !jobsBeingProcessed.isEmpty()) jobs.addAll(jobsBeingProcessed.values());
 
         IWorker worker = freeWorkers.remove(0);
         Job job = jobs.poll();
+
+        while(job.isProcessed()){
+            if(jobs.isEmpty()){
+                freeWorkers.add(worker);
+                return;
+            }
+            job = jobs.poll();
+        };
+
         job.setWorker(worker);
         jobsBeingProcessed.put(job.getId(), job);
 

@@ -22,7 +22,7 @@ public class Job {
     }
 
     public void setPrimeList(List<Integer> primeList) {
-        if (primeList != null) return;
+        if (this.primeList != null) return;
 
         this.primeList = primeList;
     }
