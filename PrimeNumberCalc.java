@@ -1,4 +1,5 @@
 import java.lang.reflect.Array;
+import java.util.ArrayList;
 
 public class PrimeNumberCalc {
     private final int LOWER_LIMIT;
@@ -9,21 +10,9 @@ public class PrimeNumberCalc {
       this.UPPER_LIMIT = u;
     }  
 
-    public static void main(String[] args) {
-        if (Array.getLength(args) == 2) {
-                PrimeNumberCalc pnc = new PrimeNumberCalc(
-                    new Integer(args[0]),
-                    new Integer(args[1])
-                    );
-            pnc.calculatePrimeNumbers();
-        } else {
-            System.out.println("Sintaxe: java PrimeNumberCacl LOWER_LIMIT UPPER_LIMIT");
-        }
-    }
-
-    public void calculatePrimeNumbers() {
+    public ArrayList<Integer> calculatePrimeNumbers() {
         int i = LOWER_LIMIT;
-        int primeNumberCounter = 0;
+        ArrayList<Integer> primes = new ArrayList<Integer>(100);
         while (++i <= UPPER_LIMIT) {
             int i1 = (int) Math.ceil(Math.sqrt(i));
             boolean isPrimeNumber = false;
@@ -37,11 +26,10 @@ public class PrimeNumberCalc {
                 --i1;
             }
             if (isPrimeNumber) {
-                System.out.println(i);
-                ++primeNumberCounter;
+                primes.add(i);
             }
         }
-        System.out.println("Nr of prime numbers found: "
-				+ primeNumberCounter);
+
+        return primes;
     }
 }

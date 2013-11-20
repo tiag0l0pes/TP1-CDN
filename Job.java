@@ -1,21 +1,41 @@
+import java.util.List;
 
 public class Job {
-    private long min;
-    private long max;
+    private static int jobIdCounter = 0;
+    private int id;
+    private int min;
+    private int max;
     private IWorker worker;
-    private IMaster master;
+    private String master;
+    private List<Integer> primeList;
 
-    public Job(long min, long max, IMaster master) {
+    public Job(int min, int max, String master) {
         this.min = min;
         this.max = max;
         this.master = master;
+        id = jobIdCounter++;
+        primeList = null;
     }
 
-    public long getMin() {
+    public List<Integer> getPrimeList() {
+        return primeList;
+    }
+
+    public void setPrimeList(List<Integer> primeList) {
+        if (primeList != null) return;
+
+        this.primeList = primeList;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public int getMin() {
         return min;
     }
 
-    public long getMax() {
+    public int getMax() {
         return max;
     }
 
@@ -27,7 +47,11 @@ public class Job {
         this.worker = worker;
     }
 
-    public IMaster getMaster() {
+    public String getMaster() {
         return master;
+    }
+
+    public boolean isProcessed() {
+        return primeList != null;
     }
 }

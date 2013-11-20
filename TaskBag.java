@@ -1,66 +1,99 @@
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.util.Hashtable;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class TaskBag implements Remote, ITaskBag {
     private final int SPLITER = 1000;
-    private int mastersCounter = 0;
     private int workersCounter = 0;
-    private Map<Integer, IWorker> workers = new Hashtable<Integer, IWorker>();
-    private Map<Integer, IMaster> masters = new Hashtable<Integer, IMaster>();
+    private Map<Integer, Job> jobsBeingProcessed = new Hashtable<Integer, Job>();
+    private Map<String, List<Integer>> masterCompletedWork = new Hashtable<String, List<Integer>>();
+    private Map<String, List<Job>> masterJobs = new Hashtable<String, List<Job>>();
+    private List<IWorker> freeWorkers = new ArrayList<IWorker>();
+    private List<IWorker> workers = new ArrayList<IWorker>(10);
+    private Map<String, IMaster> masters = new Hashtable<String, IMaster>();
     private Queue<Job> jobs = new ConcurrentLinkedQueue<Job>();
 
-    //TODO: remove jobs from queue that master is broken
+    //TODO: case a master isn't responding save the data in masterCompleteWork and when the master reconnect send the data
     //TODO: reassign jobs from broken workers to another worker
-    //TODO: prolly implement calculate in a thread
 
     @Override
     public void registerWorker(IWorker worker) {
-        System.out.println("Accepting Worker " + workersCounter + "...");
-        workers.put(workersCounter++, worker);
+        System.out.println("Accepting Worker #" + workersCounter++ + "...");
+        workers.add(worker);
+        freeWorkers.add(worker);
+
+        updateJobs();
     }
 
     @Override
-    public void registerMaster(IMaster master) {
-        System.out.println("Accepting Master " + mastersCounter + "...");
-        masters.put(mastersCounter++, master);
+    public void jobResult(int jobId, ArrayList<Integer> primeList) throws RemoteException {
+        Job job = jobsBeingProcessed.remove(jobId);
+        job.setPrimeList(primeList);
+
+        freeWorkers.add(job.getWorker());
+
+        //TODO: logic to see if the all jobs of  this master are completed, if yes return the data to the master
+        //TODO: if failing to communicate with the cliente save the data in masterCompleteWork
+        IMaster master = masters.get(job.getMaster());
+        master.printResult("asdasdsad");
+
+
+        updateJobs();
     }
 
     @Override
-    public void calculate(long start, long end, IMaster master) throws RemoteException {
-       //TODO: refactor this, debugging purposes only
-        long x;
-        if (end > start) {
-            x = end - start;
-        }
-        else {
-            x = start - end;
-        }
+    public void registerMaster(String name, IMaster master) {
+        System.out.println("Accepting Master " + name + "...");
+        masters.put(name, master);
+    }
 
-        x /= SPLITER;
-        System.out.println(x);
-        while(x < end) {
-            if (x + SPLITER > end) {
-                x = end;
+    @Override
+    public void calculate(int start, int end, String name) throws RemoteException {
+        List<Job> jobList = new ArrayList<Job>(20);
+        int interval = (end - start) / SPLITER;
+
+        while(interval < end) {
+            if (interval + SPLITER > end) {
+                interval = end;
             } else {
-                x = start + SPLITER - 1;
+                interval = start + SPLITER - 1;
             }
 
-            jobs.add(new Job(start, x, master));
-            System.out.println("de " + start + " a " + x);
-            start = x + 1;
+            Job job = new Job(start, interval, name);
+            jobs.add(job);
+            jobList.add(job);
+            start = interval + 1;
         }
 
+        masterJobs.put(name, jobList);
+        updateJobs();
+    }
 
+    private void updateJobs() {
+        if (freeWorkers.isEmpty()) return;
+        if (jobs.isEmpty() && jobsBeingProcessed.isEmpty()) return;
+        //TODO: if jobs.isEmpty and jobsBeingPRocessed isn't empty maybe a worker is failing so assign the job to another worker
+
+        IWorker worker = freeWorkers.remove(0);
+        Job job = jobs.poll();
+        job.setWorker(worker);
+        jobsBeingProcessed.put(job.getId(), job);
+
+        try {
+            worker.calculate(job.getId(), job.getMin(), job.getMax());
+        } catch (RemoteException e) {
+            jobs.add(job);
+            jobsBeingProcessed.remove(job);
+            workers.remove(worker);
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
     }
 
     public void terminateAllConnections() {
         System.out.println("Terminating all connections...");
         System.out.println("Masters...");
-        for (int key : masters.keySet()) {
+        for (String key : masters.keySet()) {
             try {
                 masters.get(key).terminate();
             } catch (RemoteException e) {
@@ -69,9 +102,9 @@ public class TaskBag implements Remote, ITaskBag {
         }
 
         System.out.println("Workers...");
-        for (int key : workers.keySet()) {
+        for (IWorker worker : workers) {
             try {
-                workers.get(key).terminate();
+                worker.terminate();
             } catch (RemoteException e) {
                 //all throw the error
             }

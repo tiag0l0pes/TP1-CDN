@@ -44,4 +44,38 @@ public class Worker implements IWorker {
         System.out.println("Server terminated... Aborting!!!");
         System.exit(0);
     }
+
+    @Override
+    public void calculate(int jobId, int min, int max) {
+        PrimeThread thread = new PrimeThread(jobId, min, max, taskBag);
+        thread.start();
+    }
+}
+
+class PrimeThread extends Thread {
+    private int min;
+    private int max;
+    private int jobId;
+    private ITaskBagWorker taskBag;
+
+    public PrimeThread(int jobId, int min, int max, ITaskBagWorker taskBag) {
+        this.jobId = jobId;
+        this.min = min;
+        this.max = max;
+        this.taskBag = taskBag;
+    }
+
+    @Override
+    public void run() {
+        PrimeNumberCalc primes = new PrimeNumberCalc(min, max);
+        System.out.println(jobId + ", "+  min + ", " +max);
+        try {
+            Thread.sleep(3000);
+            taskBag.jobResult(jobId, primes.calculatePrimeNumbers());
+        } catch (RemoteException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        } catch (InterruptedException e) {
+            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+        }
+    }
 }
